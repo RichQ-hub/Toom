@@ -2,7 +2,9 @@ from datetime import datetime
 import pprint
 import pickle
 import sys
+import textwrap
 import time
+import inspect
 
 class Data():
     def __init__(self):
@@ -43,9 +45,21 @@ class Data():
 
 # print(f"{day} {month} {year} {hour}:{minute}:{seconds}")
 
-ok = input()
+ok = ["apples", "bees", "juice"]
 
-ok = ok.split(maxsplit=1)[1:][0]
+ok_list = ""
+for e in ok:
+    ok_list += f"     > {e}\n"
 
-print(ok)
+test = """
+[OUT]: Response ========================
+mate has successfully logged out
+elements:
+{elements}
+========================================
+""".format(elements = ok_list)
+
+test = textwrap.dedent(test)
+
+print(test)
 

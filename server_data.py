@@ -6,6 +6,7 @@ class ServerData():
         self.registered_users = []
         self.active_users = []
         self.broadcasted_messages = []
+        self.chat_rooms = []
 
         # Automatically load credentialls when instantiating this class.
         self.load_credentials()
@@ -108,6 +109,19 @@ class ServerData():
         self.broadcasted_messages.append(broadcast_msg)
 
     # ----------------------------------------------------------------
+    # Chat room methods.
+    # ----------------------------------------------------------------
+
+    def create_chat_room(self, room_id, members):
+        chat_room = {
+            "room_id": room_id,
+            "members": members,
+            "messages": [],
+        }
+        self.chat_rooms.append(chat_room)
+
+
+    # ----------------------------------------------------------------
     # Getters
     # ----------------------------------------------------------------
 
@@ -119,3 +133,6 @@ class ServerData():
 
     def get_broadcasted_messages(self):
         return self.broadcasted_messages
+
+    def get_chat_rooms(self):
+        return self.chat_rooms

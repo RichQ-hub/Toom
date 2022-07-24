@@ -1,12 +1,15 @@
 # Version: Python 3.10.5 (Which should work for 3.7 on CSE machines)
 
 from datetime import datetime
+import inspect
 from pprint import pprint
 import re
 import sys
 from socket import *
+import textwrap
 from threading import Thread
 import pickle
+from tkinter import N
 from turtle import down
 from server_data import ServerData
 
@@ -56,93 +59,171 @@ class ClientThread(Thread):
                 self.clientAlive = False
                 break
 
-            # Commands.
             request = pickle.loads(request)
-            if request["command_type"] == "OUT":
-                self.handle_command_OUT(request)
+
+            # Check that request from client is a command request.
+            if not request["type"] == "command":
                 self.clientAlive = False
-            elif request["command_type"] == "BCM":
-                self.handle_command_BCM(request)
-            elif request["command_type"] == "ATU":
-                self.handle_command_ATU(request)
+                break
+
+            user = request["user"]
+            data = request["data"]
+            command_args = data["command_args"]
+
+            # Commands.
+            if data["command"] == "OUT":
+                # self.handle_command_OUT(request)
+                if self.handle_command_OUT(user, command_args):
+                    self.clientAlive = False
+            elif data["command"] == "BCM":
+                self.handle_command_BCM(user, command_args)
+            elif data["command"] == "ATU":
+                self.handle_command_ATU(user, command_args)
+            else:
+                print("Unkown command")
 
     # ----------------------------------------------------------------
     # ATU command methods.
     # ----------------------------------------------------------------
 
-    def handle_command_ATU(self, request):
+    def handle_command_ATU(self, user, command_args):
+        status = True
+        error_msg = ""
+        if not validate.validate_no_command_args(command_args):
+            error_msg = "[ERROR] ATU should have no arguments"
+            status = False
+
+        # Send error if detected.
+        if not status:
+            self.send_response(user, status, error_msg, True)
+            return
+
+        # Grab other active users.
         download_active_users = []
-        for user in self.server_data.get_active_users():
-            if user["username"] != request["username"]:
-                download_active_users.append(user)
+        for active_user in self.server_data.get_active_users():
+            if active_user["username"] != user:
+                download_active_users.append(active_user)
+
+        # If no other active users.
+        if len(download_active_users) == 0:
+            data_text = self.create_response_data_format("ATU", "No other active users")
+            self.send_response(user, status, data_text, True)
+            return
+
+        # Send response.
+        lines = ""
+        for active_user in download_active_users:
+            lines += f"""> {active_user['username']}, active since {active_user['login_timestamp']}
+                IP Address: {active_user['IP_address']}
+                UDP Socket Port: {active_user['UDP_socket_port']}
+            """
         
-        response = {
-            "command_type": "ATU",
-            "active_users": download_active_users,
-        }
-        self.clientSocket.sendall(pickle.dumps(response))
+        data_text = """
+        Active users:
+            {active_users}
+        """.format(active_users = lines)
+        requested_data = self.create_response_data_format("ATU", data_text)
+        self.send_response(user, status, requested_data, True)
     
     # ----------------------------------------------------------------
     # BCM command methods.
     # ----------------------------------------------------------------
 
-    def handle_command_BCM(self, request):
+    def handle_command_BCM(self, user, command_args):
+        status = True
+        error_msg = ""
+        if validate.validate_no_command_args(command_args):
+            error_msg = "[ERROR] No message supplied"
+            status = False
+
+        if not status:
+            self.send_response(user, status, error_msg, True)
+            return
+        
         # Generate message id.
         message_id = 1
         if len(self.server_data.get_broadcasted_messages()) != 0:
             message_list = self.server_data.get_broadcasted_messages()
             message_id = message_list[-1]["message_id"] + 1
 
+        # Create broadcast message.
         current_time = datetime.now()
         broadcast_msg = {
-            "username": request["username"],
+            "username": user,
             "message_id": message_id,
             "timestamp": current_time,
-            "message": request["message"],
+            "message": command_args[0],
         }
         self.server_data.create_broadcasted_message(broadcast_msg)
 
-        response = {
-            "command_type": "BCM",
-            "message_id": message_id,
-            "timestamp": self.convert_datetime_to_timestamp(current_time)
-        }
-        self.clientSocket.sendall(pickle.dumps(response))
+        # Send response.
+        timestamp = self.convert_datetime_to_timestamp(current_time)
+        data_text = f"""
+        Broadcast message: {command_args[0]}
+        By: {user}
+        Timestamp: {timestamp}
+        """
+        requested_data = self.create_response_data_format("BCM", data_text)
+        self.send_response(user, status, requested_data, True)
 
-        # Create a message log.
-        self.create_message_log(broadcast_msg) 
+        # Create message log.
+        self.create_message_log(broadcast_msg)
 
-        # Print command request to server output.
-        print("[BCM] =======================")
-        pprint(broadcast_msg)
-        print("=============================")
-
-    def create_message_log(self, broadcast_msg):
-        message_id = broadcast_msg["message_id"]
-        timestamp = self.convert_datetime_to_timestamp(broadcast_msg["timestamp"])
-        username = broadcast_msg["username"]
-        message = broadcast_msg["message"]
-
-        with open("messagelog.txt", "a") as stream:
-            stream.write(f"{message_id}; {timestamp}; {username}; {message}\n")
+        pprint(self.server_data.get_broadcasted_messages())
 
     # ----------------------------------------------------------------
     # OUT command methods.
     # ----------------------------------------------------------------
 
-    def handle_command_OUT(self, request):
-        self.server_data.delete_active_user(request["username"])
-        self.delete_user_log(request)
+    def handle_command_OUT(self, user, command_args):
+        status = True
+        error_msg = ""
+        if not validate.validate_no_command_args(command_args):
+            error_msg = "[ERROR] OUT should have no arguments"
+            status = False
+
+        # Send error if detected.
+        if not status:
+            self.send_response(user, status, error_msg, not status)
+            return status
+
+        # Delete active user and active user log.
+        self.server_data.delete_active_user(user)
+        self.delete_user_log(user)
+
+        # Send response.
+        data_text = f"{user} has successfully logged out"
+        requested_data = self.create_response_data_format("OUT", data_text)
+        self.send_response(user, status, requested_data, not status)
+
+        # Print to server output.
+        print(f"{user} has logged out")
 
         pprint(self.server_data.get_active_users())
 
-        print(f"> {request['username']} has logged out")
+        return status
 
+    # ----------------------------------------------------------------
+    # Response methods.
+    # ----------------------------------------------------------------
+
+    def send_response(self, user, status, requested_data, keep_alive):
         response = {
-            "status": f"{request['username']} has successfully logged out",
+            "user": user,
+            "status": status,
+            "requested_data": requested_data,
+            "keep_alive": keep_alive,
         }
-        self.clientSocket.sendall(pickle.dumps(response))      
-    
+        self.clientSocket.sendall(pickle.dumps(response))
+
+    def create_response_data_format(self, command, text):
+        data = textwrap.dedent(f"""
+        -- [{command}]: Response ---------------------------------------
+        {text}
+        ----------------------------------------------------------
+        """)
+        return data
+
     # ----------------------------------------------------------------
     # Authentification methods.
     # ----------------------------------------------------------------
@@ -257,7 +338,7 @@ class ClientThread(Thread):
         with open("userlog.txt", "a", encoding="utf-8") as stream:
             stream.write(f"{next_seq_num}; {timestamp}; {username}; {IP_address}; {UDP_socket_port}\n")
 
-    def delete_user_log(self, request):
+    def delete_user_log(self, user):
         with open("userlog.txt", "r") as stream:
             lines = stream.readlines()
 
@@ -266,7 +347,7 @@ class ClientThread(Thread):
         for line in lines:
             log_line = re.split(r"; ", line)
             log_username = log_line[2]
-            if log_username == request["username"]:
+            if log_username == user:
                 removed_line = line
                 break
 
@@ -281,6 +362,15 @@ class ClientThread(Thread):
         with open("userlog.txt", "w") as stream:
             for line in lines:
                 stream.write(line)
+
+    def create_message_log(self, broadcast_msg):
+        message_id = broadcast_msg["message_id"]
+        timestamp = self.convert_datetime_to_timestamp(broadcast_msg["timestamp"])
+        username = broadcast_msg["username"]
+        message = broadcast_msg["message"]
+
+        with open("messagelog.txt", "a") as stream:
+            stream.write(f"{message_id}; {timestamp}; {username}; {message}\n")
 
     def convert_datetime_to_timestamp(self, date_time):
         day = date_time.strftime("%d")

@@ -82,67 +82,23 @@ def send_UDP_socket():
     clientSocket.sendall(pickle.dumps(UDP_port_number))
 
 # ----------------------------------------------------------------
-# OUT command methods.
-# ----------------------------------------------------------------
-
-def handle_command_OUT(username):
-    request = {
-        "command_type": "OUT",
-        "username": username,
-    }
-
-    # Send request.
-    clientSocket.sendall(pickle.dumps(request))
-
-    # Receive response.
-    response = clientSocket.recv(HEADER)
-    response = pickle.loads(response)
-    print(response["status"])
-
-# ----------------------------------------------------------------
-# BCM command methods.
-# ----------------------------------------------------------------
-
-def handle_command_BCM(username, command):
-    broadcast_message = command.split(maxsplit=1)[1:]
-
-    if not broadcast_message:
-        print("No message was supplied")
-        return
-
-    request = {
-        "command_type": "BCM",
-        "username": username,
-        "message": broadcast_message[0],
-    }
-    clientSocket.sendall(pickle.dumps(request))
-
-    # Get response.
-    response = clientSocket.recv(HEADER)
-    response = pickle.loads(response)
-    print(response)
-
-# ----------------------------------------------------------------
-# ATU command methods.
-# ----------------------------------------------------------------
-
-def handle_command_ATU(username, command):
-    request = {
-        "command_type": "ATU",
-        "username": username,
-    }
-
-    # Send request.
-    clientSocket.sendall(pickle.dumps(request))
-
-    # Get response.
-    response = clientSocket.recv(HEADER)
-    response = pickle.loads(response)
-    print(response)
-
-# ----------------------------------------------------------------
 # Start function.
 # ----------------------------------------------------------------
+
+def create_request(type, user, data):
+    request = {
+        "type": type,
+        "user": user,
+        "data": data,
+    }
+    return request
+
+def create_command_request(user, command, command_args):
+    command_data = {
+        "command": command,
+        "command_args": command_args,
+    }
+    return create_request("command", user, command_data)
 
 def start():
     """Starts the client.
@@ -166,17 +122,22 @@ def start():
             print("No command supplied")
             continue
 
+        # Send command request.
         command_type = command.split(maxsplit=1)[0]
-        if command_type == "OUT":
-            handle_command_OUT(username)
+        command_args = command.split(maxsplit=1)[1:]
+
+        request = create_command_request(username, command_type, command_args)
+
+        # Send request.
+        clientSocket.sendall(pickle.dumps(request))
+
+        # Get response.
+        response = clientSocket.recv(HEADER)
+        response = pickle.loads(response)
+        print(response["requested_data"])
+
+        if not response["keep_alive"]:
             client_alive = False
-        elif command_type == "BCM":
-            handle_command_BCM(username, command)
-        elif command_type == "ATU":
-            handle_command_ATU(username, command)
-        else:
-            print("Could not understand command, please try again.")
-            print()
 
     close_client()
 
