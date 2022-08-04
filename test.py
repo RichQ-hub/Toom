@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 import pprint
 import pickle
+import re
 import sys
 import textwrap
 import time
@@ -45,21 +46,36 @@ class Data():
 
 # print(f"{day} {month} {year} {hour}:{minute}:{seconds}")
 
-ok = ["apples", "bees", "juice"]
+# -----------------------------------------------------
 
-ok_list = ""
-for e in ok:
-    ok_list += f"     > {e}\n"
+# ok = ["apples", "bees", "juice"]
 
-test = """
-[OUT]: Response ========================
-mate has successfully logged out
-elements:
-{elements}
-========================================
-""".format(elements = ok_list)
+# ok_list = ""
+# for e in ok:
+#     ok_list += f"     > {e}\n"
 
-test = textwrap.dedent(test)
+# test = """
+# [OUT]: Response ========================
+# mate has successfully logged out
+# elements:
+# {elements}
+# ========================================
+# """.format(elements = ok_list)
 
-print(test)
+# test = textwrap.dedent(test)
 
+# print(test)
+
+# -----------------------------------------------------
+
+def test(day, month, year, time):
+    timestamp = f"{day} {month} {year} {time}"
+    return datetime.strptime(timestamp, '%d %b %Y %X')
+
+try:
+    timestamp = test("1", "Jun", "2002", "15:30:10")
+except:
+    print("nope")
+
+with open("example1.mp4", "rb") as stream:
+    print(stream.read())
