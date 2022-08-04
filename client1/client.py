@@ -7,10 +7,6 @@ from socket import *
 import textwrap
 from threading import Thread
 
-SERVER_HOST = '127.0.0.1'
-SERVER_PORT = 2000
-SERVER_ADDRESS = (SERVER_HOST, SERVER_PORT)
-
 CLIENT_HOST = '127.0.0.1'
 HEADER = 1024
 
@@ -288,14 +284,16 @@ def close_client():
 # ----------------------------------------------------------------
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print("Usage: python3 client.py <client-udp-port>")
+    if len(sys.argv) != 4:
+        print("Usage: python3 client.py <server_IP> <server_port> <client-udp-port>")
         sys.exit(1)
 
-    UDP_server_port_number = int(sys.argv[1])
+    server_IP = sys.argv[1]
+    server_port = int(sys.argv[2])
+    UDP_server_port_number = int(sys.argv[3])
 
     clientSocket = socket(AF_INET, SOCK_STREAM)
-    clientSocket.connect(SERVER_ADDRESS)
+    clientSocket.connect((server_IP, server_port))
 
     UDP_server_socket = socket(AF_INET, SOCK_DGRAM)
     UDP_server_socket.bind((CLIENT_HOST, UDP_server_port_number))

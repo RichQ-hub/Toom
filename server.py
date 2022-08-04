@@ -13,8 +13,6 @@ from server_data import ServerData
 import validate
 
 HOST = '127.0.0.1'
-PORT = 2000
-ADDRESS = (HOST, PORT)
 HEADER = 1024 # Size of each TCP segment.
 
 SUCCESS = "Success"
@@ -246,10 +244,10 @@ class ClientThread(Thread):
         members = command_args
 
         # User cannot create room with only themselves as a member.
-        # if len(members)  == 1 and user in members:
-        #     data_text = f"User cannot create a room with only themselves"
-        #     self.send_response(user, False, data_text, True)
-        #     return
+        if len(members)  == 1 and user in members:
+            data_text = f"User cannot create a room with only themselves"
+            self.send_response(user, False, data_text, True)
+            return
 
         # Check if a room already exists for these users.
         room_id = self.server_data.get_chat_room_id_by_users(members)
@@ -598,7 +596,7 @@ def start():
     server_data = ServerData()
 
     serverSocket = socket(AF_INET, SOCK_STREAM)
-    serverSocket.bind(ADDRESS)
+    serverSocket.bind((HOST, server_port))
     serverSocket.listen()
 
     print("Server is now running")
@@ -613,14 +611,16 @@ def start():
 # ----------------------------------------------------------------
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print("Usage: python3 server.py <login-attempts>")
+    if len(sys.argv) != 3:
+        print("Usage: python3 server.py <server-port> <login-attempts>")
         sys.exit(1)
 
     # Check login_attempts is of type int.
-    if not validate.validate_login_attempts_number(sys.argv[1]):
+    if not validate.validate_login_attempts_number(sys.argv[2]):
         print("<login-attempts> must be a number between 1 and 5")
         sys.exit(1)
+
+    server_port = int(sys.argv[1])
 
     # Start server.
     start()
