@@ -437,7 +437,7 @@ class ClientThread(Thread):
 
     def authenticate_client(self):
         # Send login request.
-        input_login_attempts = int(sys.argv[1])
+        input_login_attempts = int(sys.argv[2])
         msg = {
             "request_type": "login",
         }
